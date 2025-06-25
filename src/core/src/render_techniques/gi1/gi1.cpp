@@ -2118,7 +2118,7 @@ void GI1::render(CapsaicinInternal &capsaicin) noexcept
 
     // Stochastically patch the overridable tiles using empty ones (a.k.a., adaptive sampling)
     {
-        TimedSection const timed_section(*this, "PatchScreenProbes");
+        TimedSection const timed_section(*this, "PatchScreenProbes - Stochastically patch the overridable tiles using empty ones (a.k.a., adaptive sampling)");
 
         uint32_t const *num_threads = gfxKernelGetNumThreads(gfx_, patch_screen_probes_kernel_);
         generateDispatch(screen_probes_.probe_empty_tile_count_buffer_, num_threads[0]);
@@ -2129,7 +2129,7 @@ void GI1::render(CapsaicinInternal &capsaicin) noexcept
 
     // Importance sample the spawned probes
     {
-        TimedSection const timed_section(*this, "SampleScreenProbes");
+        TimedSection const timed_section(*this, "SampleScreenProbes - Importance sample the spawned probes");
 
         uint32_t const *num_threads  = gfxKernelGetNumThreads(gfx_, sample_screen_probes_kernel_);
         uint32_t const  num_groups_x = (screen_probes_.max_ray_count + num_threads[0] - 1) / num_threads[0];
@@ -2362,7 +2362,7 @@ void GI1::render(CapsaicinInternal &capsaicin) noexcept
 
     // Project the screen probes into SH basis
     {
-        TimedSection const timed_section(*this, "ProjectScreenProbes");
+        TimedSection const timed_section(*this, "ProjectScreenProbes to SH");
 
         uint32_t const *num_threads  = gfxKernelGetNumThreads(gfx_, project_screen_probes_kernel_);
         uint32_t const  num_groups_x = (screen_probes_.max_ray_count + num_threads[0] - 1) / num_threads[0];
@@ -2373,7 +2373,7 @@ void GI1::render(CapsaicinInternal &capsaicin) noexcept
 
     // Interpolate the screen probes to target resolution
     {
-        TimedSection const timed_section(*this, "InterpolateScreenProbes");
+        TimedSection const timed_section(*this, "InterpolateScreenProbes to Target resolution");
 
         uint32_t const *num_threads  = gfxKernelGetNumThreads(gfx_, interpolate_screen_probes_kernel_);
         uint32_t const  num_groups_x = (render_dimensions.x + num_threads[0] - 1) / num_threads[0];
@@ -2625,7 +2625,7 @@ void GI1::render(CapsaicinInternal &capsaicin) noexcept
 
     // Reproject the previous frame's global illumination
     {
-        TimedSection const timed_section(*this, "ReprojectGI");
+        TimedSection const timed_section(*this, "Denoiser - Temporal ReprojectGI");
 
         uint32_t const *num_threads  = gfxKernelGetNumThreads(gfx_, reproject_gi_kernel_);
         uint32_t const  num_groups_x = (render_dimensions.x + num_threads[0] - 1) / num_threads[0];
@@ -2642,7 +2642,7 @@ void GI1::render(CapsaicinInternal &capsaicin) noexcept
 
     // Filter the blur mask prior to spatial filtering
     {
-        TimedSection const timed_section(*this, "FilterBlurMask");
+        TimedSection const timed_section(*this, "Denoiser - FilterBlurMask");
 
         uint32_t const *num_threads  = gfxKernelGetNumThreads(gfx_, filter_blur_mask_kernel_);
         uint32_t const  num_groups_x = (render_dimensions.x + num_threads[0] - 1) / num_threads[0];
@@ -2654,7 +2654,7 @@ void GI1::render(CapsaicinInternal &capsaicin) noexcept
 
     // And blur our disocclusions
     {
-        TimedSection const timed_section(*this, "FilterGI");
+        TimedSection const timed_section(*this, "Denoiser - FilterGI");
 
         uint32_t const *num_threads  = gfxKernelGetNumThreads(gfx_, filter_gi_kernel_);
         uint32_t const  num_groups_x = (render_dimensions.x + num_threads[0] - 1) / num_threads[0];
