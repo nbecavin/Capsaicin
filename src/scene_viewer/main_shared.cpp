@@ -800,6 +800,8 @@ bool CapsaicinMain::setColorGradingLUT(std::filesystem::path const &colorGrading
 
 bool CapsaicinMain::setRenderer(string_view const renderer) noexcept
 {
+    GfxCommandEvent const frame_event(contextGFX, "SetRenderer %d", Capsaicin::GetFrameIndex() + 1);
+
     // Change render settings based on currently selected renderer
     if (!Capsaicin::SetRenderer(renderer))
     {
@@ -1072,6 +1074,8 @@ bool CapsaicinMain::renderFrame() noexcept
             Capsaicin::setOption("tonemap_enable", false);
         }
     }
+
+    GfxCommandEvent const frame_event(contextGFX, "Frame %d", Capsaicin::GetFrameIndex() + 1);
 
     // Render the scene
     Capsaicin::Render();

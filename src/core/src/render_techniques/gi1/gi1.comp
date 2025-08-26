@@ -964,6 +964,8 @@ void SampleScreenProbes(in uint did : SV_DispatchThreadID, in uint local_id : SV
         }
     }
 
+    //NICOB ray guiding importance sampling
+    
     g_ScreenProbes_PreviousProbeBuffer[pos]    = previous_radiance;
     g_ScreenProbes_ProbeSpawnSampleBuffer[did] = ScreenProbes_PackSample(direction);
 }
@@ -1511,6 +1513,8 @@ void ProjectScreenProbes(in uint did : SV_DispatchThreadID, in uint local_id : S
 [numthreads(8, 8, 1)]
 void InterpolateScreenProbes(in uint2 did : SV_DispatchThreadID)
 {
+    //NICOB Final Gather
+    
     float  depth        = g_DepthBuffer.Load(int3(did, 0)).x;
     float3 normal       = g_GeometryNormalBuffer.Load(int3(did, 0)).xyz;
     bool   is_sky_pixel = (dot(normal, normal) == 0.0f ? true : false);
