@@ -954,7 +954,10 @@ void SampleScreenProbes(in uint did : SV_DispatchThreadID, in uint local_id : SV
 #endif
         {
             // sample direction by ray guiding
-            uint sampled_cell_index = ScreenProbes_FindCellIndex(local_id, randomNG.rand());
+			uint sampled_cell_index = ScreenProbes_FindCellIndex(local_id, randomNG.rand());
+#if !PHOTON_USE_RAY_GUIDING
+            sampled_cell_index = local_id; //force uniform sampling
+#endif
             uint2 sampled_cell = (total_weight > 0.0f ? uint2(sampled_cell_index % g_ScreenProbesConstants.probe_size, sampled_cell_index / g_ScreenProbesConstants.probe_size) : cell);
             direction = mapToHemiOctahedron((sampled_cell + randomNG.rand2()) / g_ScreenProbesConstants.probe_size);
 
@@ -1389,6 +1392,7 @@ void FilterScreenProbes(in uint did : SV_DispatchThreadID)
     GetOrthoVectors(normal, b1, b2);
     direction = direction.x * b1 + direction.y * b2 + direction.z * normal;
 
+#if PHOTON_USE_SPATIAL_FILTER
     const int kRadius = 3;
     const int kSize   = (kRadius << 1);
 
@@ -1437,6 +1441,7 @@ void FilterScreenProbes(in uint did : SV_DispatchThreadID)
 
         hit_distance = radiance.w / total_weight;
     }
+#endif
 
     g_ScreenProbes_ProbeBuffer[pos] = (radiance / total_weight);
 }
@@ -1463,7 +1468,15 @@ void ProjectScreenProbes(in uint did : SV_DispatchThreadID, in uint local_id : S
     {
         float3 normal    = normalize(2.0f * g_GeometryNormalBuffer.Load(int3(seed, 0)).xyz - 1.0f);
         float3 radiance  = g_ScreenProbes_ProbeBuffer[probe_pos].xyz / g_ScreenProbesConstants.probe_size;
-        float3 direction = mapToHemiOctahedron((cell + 0.5f) / g_ScreenProbesConstants.probe_size);
+        
+#if 0 //for debugging convenience
+		uint mod_x = probe.x % 8;
+		uint mod_y = probe.y % 8;
+		if (!(mod_x == 0 && mod_y == 0))//  != mod_y)
+			radiance *= 0.001;
+#endif
+        
+		float3 direction = mapToHemiOctahedron((cell + 0.5f) / g_ScreenProbesConstants.probe_size);
 
         float3 b1, b2;
         GetOrthoVectors(normal, b1, b2);
@@ -1506,12 +1519,12 @@ void ProjectScreenProbes(in uint did : SV_DispatchThreadID, in uint local_id : S
 
         uint index = probe.x + probe.y * ((g_BufferDimensions.x + g_ScreenProbesConstants.probe_size - 1) / g_ScreenProbesConstants.probe_size);
 
-        g_ScreenProbes_ProbeSHBuffer[9 * index + sh_index] = ScreenProbes_PackSHColor(irradiance_sh);
-    }
+		g_ScreenProbes_ProbeSHBuffer[9 * index + sh_index] = ScreenProbes_PackSHColor(irradiance_sh);
+	}
 }
 
 [numthreads(8, 8, 1)]
-void InterpolateScreenProbes(in uint2 did : SV_DispatchThreadID)
+void InterpolateScreenProbes(in uint2 did : SV_DispatchThreadID, int2 gid : SV_GroupID)
 {
     //NICOB Final Gather
     
@@ -1519,17 +1532,29 @@ void InterpolateScreenProbes(in uint2 did : SV_DispatchThreadID)
     float3 normal       = g_GeometryNormalBuffer.Load(int3(did, 0)).xyz;
     bool   is_sky_pixel = (dot(normal, normal) == 0.0f ? true : false);
 
-    if (is_sky_pixel || any(did >= g_BufferDimensions))
-    {
-        g_GIDenoiser_ColorBuffer[did] = float4(0.0f, 0.0f, 0.0f, 1.0f);
+	if (is_sky_pixel || any(did >= g_BufferDimensions))
+	{
+		g_GIDenoiser_ColorBuffer[did] = float4(0.0f, 0.0f, 0.0f, 1.0f);
 
 #ifndef DISABLE_SPECULAR_MATERIALS
-        g_ReflectionBuffer[did] = float4(0.0f, 0.0f, 0.0f, 1.0f);
+		g_ReflectionBuffer[did] = float4(0.0f, 0.0f, 0.0f, 1.0f);
 #endif // DISABLE_SPECULAR_MATERIALS
 
-        return; // discard sky pixels
-    }
+		return; // discard sky pixels
+	}
 
+    /* NICOB checkerboard
+	if (((gid.x & 1) || (gid.y & 1)) && ((gid.x & 1) != (gid.y & 1)))
+	{
+		g_GIDenoiser_ColorBuffer[did] = float4(0.0f, 0.0f, 0.0f, 1.0f);
+
+#ifndef DISABLE_SPECULAR_MATERIALS
+		g_ReflectionBuffer[did] = float4(0.0f, 0.0f, 0.0f, 1.0f);
+#endif // DISABLE_SPECULAR_MATERIALS
+
+		return; // discard sky pixels
+	}*/
+    
     normal = normalize(2.0f * normal - 1.0f);   // recover normal vector
 
     uint2  pos       = did;
@@ -1612,6 +1637,11 @@ void InterpolateScreenProbes(in uint2 did : SV_DispatchThreadID)
 
         use_backup = true;  // for 'relaxed' interpolation in failure cases
     }
+    
+#if !PHOTON_FETCH_NEIGHBORHOOD
+	w.x = 1.f;
+	w.yzw = 0.f;
+#endif
 
     w /= w.x + w.y + w.z + w.w; // weights must sum up to 1
 
@@ -3674,8 +3704,13 @@ void ReprojectGI(in uint2 did : SV_DispatchThreadID)
     }
 
     g_GIDenoiser_BlurMask[did]         = blur_mask / 127.0f;
+#if PHOTON_USE_GI_DENOISER
     g_GIDenoiser_ColorBuffer[did]      = lighting;
     g_GIDenoiser_ColorDeltaBuffer[did] = color_delta;
+#else
+    g_GIDenoiser_ColorBuffer[did]      = color;
+    g_GIDenoiser_ColorDeltaBuffer[did] = 0;
+#endif
 }
 
 [numthreads(kGIDenoiser_BlurGroupSize, kGIDenoiser_BlurGroupSize, 1)]
@@ -3756,7 +3791,11 @@ void FilterGI(in uint2 did : SV_DispatchThreadID)
     float4 lighting    = g_GIDenoiser_PreviousColorBuffer.Load(int3(did, 0));
     int    blur_radius = GIDenoiser_GetBlurRadius(did);
 
-    if (blur_radius > 0)
+#if !PHOTON_USE_GI_DENOISER
+	blur_radius = -1; //force no blur
+#endif
+    
+	if (blur_radius > 1)
     {
         float  weight = 1.0f;
         float3 color  = lighting.xyz / max(lighting.w, 1.0f);

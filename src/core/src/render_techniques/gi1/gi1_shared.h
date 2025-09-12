@@ -29,6 +29,11 @@ THE SOFTWARE.
 using namespace Capsaicin;
 #endif
 
+#define PHOTON_USE_SPATIAL_FILTER 1
+#define PHOTON_USE_RAY_GUIDING 1
+#define PHOTON_FETCH_NEIGHBORHOOD 1
+#define PHOTON_USE_GI_DENOISER 1
+
 enum ScreenProbesDebugModes
 {
     SCREENPROBES_DEBUG_RADIANCE = 0,

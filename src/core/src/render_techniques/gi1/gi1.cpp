@@ -1152,6 +1152,7 @@ RenderOptionList GI1::getRenderOptions() noexcept
     RenderOptionList newOptions;
     newOptions.emplace(RENDER_OPTION_MAKE(gi1_use_dxr10, options_));
     newOptions.emplace(RENDER_OPTION_MAKE(gi1_use_resampling, options_));
+    newOptions.emplace(RENDER_OPTION_MAKE(gi1_use_occlusion_and_bentnormal, options_));
     newOptions.emplace(RENDER_OPTION_MAKE(gi1_use_direct_lighting, options_));
     newOptions.emplace(RENDER_OPTION_MAKE(gi1_disable_albedo_textures, options_));
     newOptions.emplace(RENDER_OPTION_MAKE(gi1_disable_specular_materials, options_));
@@ -1197,6 +1198,7 @@ GI1::RenderOptions GI1::convertOptions(RenderOptionList const &options) noexcept
     RENDER_OPTION_GET(gi1_use_resampling, newOptions, options)
     newOptions.gi1_disable_alpha_testing = *std::get_if<bool>(
         &options.at("visibility_buffer_disable_alpha_testing")); // Map the option from visibility buffer
+    RENDER_OPTION_GET(gi1_use_occlusion_and_bentnormal, newOptions, options);
     RENDER_OPTION_GET(gi1_use_direct_lighting, newOptions, options)
     RENDER_OPTION_GET(gi1_disable_albedo_textures, newOptions, options)
     RENDER_OPTION_GET(gi1_disable_specular_materials, newOptions, options)
@@ -1311,7 +1313,7 @@ bool GI1::init(CapsaicinInternal const &capsaicin) noexcept
     {
         base_defines.push_back("DISABLE_ALPHA_TESTING");
     }
-    if (capsaicin.hasSharedTexture("OcclusionAndBentNormal"))
+    if (options_.gi1_use_occlusion_and_bentnormal && capsaicin.hasSharedTexture("OcclusionAndBentNormal"))
     {
         base_defines.push_back("HAS_OCCLUSION");
     }
@@ -1543,6 +1545,7 @@ void GI1::render(CapsaicinInternal &capsaicin) noexcept
     bool const needs_recompile =
         (options.gi1_use_resampling != options_.gi1_use_resampling
             || options.gi1_disable_alpha_testing != options_.gi1_disable_alpha_testing
+            || options.gi1_use_occlusion_and_bentnormal != options_.gi1_use_occlusion_and_bentnormal
             || options.gi1_disable_specular_materials != options_.gi1_disable_specular_materials
             || light_sampler->needsRecompile(capsaicin) || needs_debug_view)
         || options_.gi1_use_dxr10 != options.gi1_use_dxr10
@@ -2943,8 +2946,8 @@ void GI1::renderGUI(CapsaicinInternal &capsaicin) const noexcept
     ImGui::Checkbox("Use Resampling", &capsaicin.getOption<bool>("gi1_use_resampling"));
     ImGui::Checkbox("Use Direct Lighting", &capsaicin.getOption<bool>("gi1_use_direct_lighting"));
     ImGui::Checkbox("Disable Albedo Textures", &capsaicin.getOption<bool>("gi1_disable_albedo_textures"));
-    ImGui::Checkbox(
-        "Disable Specular Materials", &capsaicin.getOption<bool>("gi1_disable_specular_materials"));
+    ImGui::Checkbox("Disable Specular Materials", &capsaicin.getOption<bool>("gi1_disable_specular_materials"));
+    ImGui::Checkbox("Use Occlusion and BentNormal", &capsaicin.getOption<bool>("gi1_use_occlusion_and_bentnormal"));
 
     if (ImGui::CollapsingHeader("Hash Grid Cache", ImGuiTreeNodeFlags_None))
     {

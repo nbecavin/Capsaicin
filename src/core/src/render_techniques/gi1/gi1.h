@@ -52,7 +52,8 @@ public:
         bool  gi1_disable_alpha_testing                     = false;
         bool  gi1_use_direct_lighting                       = true;
         bool  gi1_disable_albedo_textures                   = false;
-        bool  gi1_disable_specular_materials                = false;
+        bool  gi1_disable_specular_materials                = true;     // NICOB - different from vanilla code
+        bool  gi1_use_occlusion_and_bentnormal              = false;    // NICOB - different from vanilla code
         float gi1_hash_grid_cache_cell_size                 = 32.0F;
         float gi1_hash_grid_cache_min_cell_size             = 1e-1F;
         int   gi1_hash_grid_cache_tile_cell_ratio           = 8;  // 8x8               = 64
@@ -185,7 +186,7 @@ protected:
         void ensureMemoryIsAllocated(CapsaicinInternal const &capsaicin);
 
         static constexpr uint32_t     probe_size_    = 8;
-        static constexpr SamplingMode sampling_mode_ = kSamplingMode_QuarterSpp;
+        static constexpr SamplingMode sampling_mode_ = kSamplingMode_OneSpp;
         uint2                         probe_count_;
 
         static constexpr uint32_t probe_spawn_tile_size_ =
