@@ -956,7 +956,7 @@ void SampleScreenProbes(in uint did : SV_DispatchThreadID, in uint local_id : SV
             // sample direction by ray guiding
 			uint sampled_cell_index = ScreenProbes_FindCellIndex(local_id, randomNG.rand());
 #if !PHOTON_USE_RAY_GUIDING
-            sampled_cell_index = local_id; //force uniform sampling
+            sampled_cell_index = cell_index; //force uniform sampling
 #endif
             uint2 sampled_cell = (total_weight > 0.0f ? uint2(sampled_cell_index % g_ScreenProbesConstants.probe_size, sampled_cell_index / g_ScreenProbesConstants.probe_size) : cell);
             direction = mapToHemiOctahedron((sampled_cell + randomNG.rand2()) / g_ScreenProbesConstants.probe_size);
@@ -3649,13 +3649,17 @@ void ReprojectGI(in uint2 did : SV_DispatchThreadID)
                     {
                         continue;   // skip invalid sample(s)
                     }
+                    
+                    //NICOB
+					//if (x != 0 || y != 0)
+					//	continue;
 
                     previous_normal = 2.0f * previous_normal - 1.0f;
 
                     float  previous_depth = g_PreviousDepthBuffer.SampleLevel(g_NearestSampler, st, 0.0f).x;
                     float3 previous_world = transformPointProjection(st, previous_depth, g_PreviousViewProjectionInverse);
 
-                    if (distance(world, previous_world) < cell_size && dot(normal, previous_normal) > 0.95f)
+					if (distance(world, previous_world) < cell_size && dot(normal, previous_normal) > 0.95f)
                     {
                         float subpixel_dist = distance(floor(st * g_BufferDimensions) + 0.5f, previous_uv * g_BufferDimensions);
                         float w             = saturate(1.0f - subpixel_dist * kOneOverSqrtOfTwo);
@@ -3663,7 +3667,7 @@ void ReprojectGI(in uint2 did : SV_DispatchThreadID)
                         color_delta += w * g_GIDenoiser_PreviousColorDeltaBuffer.SampleLevel(g_NearestSampler, st, 0.0f).x;
                         lighting    += w * c;
                         weight      += w;
-                    }
+					}
                 }
             }
 
@@ -3687,8 +3691,9 @@ void ReprojectGI(in uint2 did : SV_DispatchThreadID)
         }
     }
 
+    
     float blur_mask = (!is_sky_pixel ? max(8.0f - lighting.w, 0.0f) : -1.0f);
-
+    
     if (color.w > 0.0f || lighting.w < 1.0f)    // append new sample
     {
         lighting += float4(color.xyz, color.w > 0.0f ? 1.0f : -1.0f);
@@ -3704,7 +3709,7 @@ void ReprojectGI(in uint2 did : SV_DispatchThreadID)
     }
 
     g_GIDenoiser_BlurMask[did]         = blur_mask / 127.0f;
-#if PHOTON_USE_GI_DENOISER
+#if PHOTON_USE_GI_DENOISER_ACCUMULATE
     g_GIDenoiser_ColorBuffer[did]      = lighting;
     g_GIDenoiser_ColorDeltaBuffer[did] = color_delta;
 #else
@@ -3791,7 +3796,7 @@ void FilterGI(in uint2 did : SV_DispatchThreadID)
     float4 lighting    = g_GIDenoiser_PreviousColorBuffer.Load(int3(did, 0));
     int    blur_radius = GIDenoiser_GetBlurRadius(did);
 
-#if !PHOTON_USE_GI_DENOISER
+#if !PHOTON_USE_GI_DENOISER_BLUR
 	blur_radius = -1; //force no blur
 #endif
     
@@ -3830,8 +3835,8 @@ void FilterGI(in uint2 did : SV_DispatchThreadID)
 
     if (g_BlurDirection.y > 0)
     {
-        g_IrradianceBuffer[did] = float4(lighting.xyz / max(lighting.w, 1.0f), 1.0f);
-    }
+		g_IrradianceBuffer[did] = float4(lighting.xyz / max(lighting.w, 1.0f), 1.0f);
+	}
 
     g_GIDenoiser_ColorBuffer[did] = lighting;
 }

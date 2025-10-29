@@ -85,6 +85,9 @@ vector<CapsaicinMain::SceneData> const CapsaicinMain::scenes = {
     {          .name                 = "Asobo Mansion",
      .fileName          = {"assets/CapsaicinTestMedia/asobo_mansion/mansion.gltf"},
      .useEnvironmentMap = true},
+    {   .name                 = "GI House",
+     .fileName          = {"assets/CapsaicinTestMedia/gi_house/gi_house.gltf"},
+     .useEnvironmentMap = true},
 };
 
 vector<pair<string_view, filesystem::path>> const CapsaicinMain::sceneEnvironmentMaps = {
